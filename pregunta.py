@@ -14,39 +14,45 @@ import pandas as pd
 
 def ingest_data():
 
-    with open('clusters_report.txt', 'r') as file:
-        lines = file.readlines()
+    df = pd.read_fwf(
+        "clusters_report.txt",
+        widths=[7, 16, 16, 79],
+        header=[0],
+        skiprows=[1, 2, 3]
+    )
 
+    lastCluster = 1
+    lastPClave = 105
+    lastPorcentaje = "15,9 %"
+    for i, _ in df.iterrows():
+        if df.iloc[i, 0] != lastCluster and not pd.isna(df.iloc[i, 0]):
+            lastCluster = df.iloc[i, 0]
+            lastPClave = df.iloc[i, 1]
+            lastPorcentaje = df.iloc[i, 2]
+        else:
+            df.iloc[i, 0] = lastCluster
+            df.iloc[i, 1] = lastPClave
+            df.iloc[i, 2] = lastPorcentaje
 
-        # Crear una lista para almacenar los datos
-        data = []
+    df = df.groupby(["Cluster", "Cantidad de", "Porcentaje de"])
 
-        # Procesar cada línea del archivo
-        for line in lines:
-            line = line.strip()  # Eliminar espacios en blanco al inicio y al final de la línea
-            # Saltar las líneas de encabezado y separador
-            if line.startswith(('Cluster', '----')):
-                continue
-            elif line:  # Procesar líneas con datos
-                parts = line.split()  # Dividir la línea en partes separadas por espacios
-                cluster = parts[0]
-                cantidad = parts[1]
-                porcentaje = parts[2]
-                # Unir las partes restantes de la línea
-                palabras_clave = ' '.join(parts[3:])
+    df = df.agg(lambda x: " ".join(x)).reset_index()
 
-                # Agregar los valores a la lista de datos
-                data.append([cluster, cantidad, porcentaje, palabras_clave])
+    df["Principales palabras clave"] = df["Principales palabras clave"].str.replace(
+        r"\s{2,}", " ", regex=True)
 
-        # Crear el dataframe de Pandas
-        df = pd.DataFrame(data, columns=['cluster', 'cantidad_de_palabras_clave',
-                        'porcentaje_de_palabras_clave', 'principales_palabras_clave'])
+    df["Principales palabras clave"] = df["Principales palabras clave"].str.replace(
+        ".", "", regex=True)
 
-        # Convertir los nombres de columnas a minúsculas con guiones bajos
-        df.columns = df.columns.str.lower().str.replace(' ', '_')
+    df["Porcentaje de"] = df["Porcentaje de"].str.slice(0, -2)
+    df["Porcentaje de"] = df["Porcentaje de"].str.replace(
+        ",", ".").astype(float)
 
-        # Reemplazar espacios adicionales en las palabras clave
-        df['principales_palabras_clave'] = df['principales_palabras_clave'].str.replace(
-            r"\s{2,}", ", ")
+    df.columns = [
+        "cluster",
+        "cantidad_de_palabras_clave",
+        "porcentaje_de_palabras_clave",
+        "principales_palabras_clave"
+    ]
 
-return df
+    return df
