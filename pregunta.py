@@ -9,50 +9,35 @@ espacio entre palabra y palabra.
 
 
 """
+import numpy as np
+import re
 import pandas as pd
 
 
 def ingest_data():
+  df_aux = pd.read_fwf("clusters_report.txt", skiprows=4,
+                       names=['1', '2', '3', '4'])
+  df = pd.DataFrame(columns=['cluster', 'cantidad_de_palabras_clave',
+                    'porcentaje_de_palabras_clave', 'principales_palabras_clave'])
 
-    df = pd.read_fwf(
-        "clusters_report.txt",
-        widths=[7, 16, 16, 79],
-        header=[0],
-        skiprows=[1, 2, 3]
-    )
+  for ind in range(len(df_aux)):
+    if not (np.isnan(df_aux.iloc[ind]['1'])):
+      df.loc[len(df.index)] = [df_aux.iloc[ind]['1'], df_aux.iloc[ind]
+                               ['2'], df_aux.iloc[ind]['3'], df_aux.iloc[ind]['4']]
+    else:
+      df.at[len(df.index)-1, 'principales_palabras_clave'] += " " + \
+          df_aux.iloc[ind]['4']
 
-    lastCluster = 1
-    lastPClave = 105
-    lastPorcentaje = "15,9 %"
-    for i, _ in df.iterrows():
-        if df.iloc[i, 0] != lastCluster and not pd.isna(df.iloc[i, 0]):
-            lastCluster = df.iloc[i, 0]
-            lastPClave = df.iloc[i, 1]
-            lastPorcentaje = df.iloc[i, 2]
-        else:
-            df.iloc[i, 0] = lastCluster
-            df.iloc[i, 1] = lastPClave
-            df.iloc[i, 2] = lastPorcentaje
+  df['principales_palabras_clave'] = df['principales_palabras_clave'].apply(
+      lambda x: re.sub('\s+', ' ', x))
+  df['principales_palabras_clave'] = df['principales_palabras_clave'].apply(
+      lambda x: re.sub(',\s*', ', ', x))
+  df['principales_palabras_clave'] = df['principales_palabras_clave'].apply(
+      lambda x: x.rstrip('.'))
+  df['porcentaje_de_palabras_clave'] = df['porcentaje_de_palabras_clave'].apply(
+      lambda x: float(re.sub(',', '.', re.findall('\d+,\d+', x)[0])))
+  df['cluster'] = df['cluster'].apply(int)
+  df['cantidad_de_palabras_clave'] = df['cantidad_de_palabras_clave'].apply(
+      int)
 
-    df = df.groupby(["Cluster", "Cantidad de", "Porcentaje de"])
-
-    df = df.agg(lambda x: " ".join(x)).reset_index()
-
-    df["Principales palabras clave"] = df["Principales palabras clave"].str.replace(
-        r"\s{2,}", " ", regex=True)
-
-    df["Principales palabras clave"] = df["Principales palabras clave"].str.replace(
-        ".", "", regex=True)
-
-    df["Porcentaje de"] = df["Porcentaje de"].str.slice(0, -2)
-    df["Porcentaje de"] = df["Porcentaje de"].str.replace(
-        ",", ".").astype(float)
-
-    df.columns = [
-        "cluster",
-        "cantidad_de_palabras_clave",
-        "porcentaje_de_palabras_clave",
-        "principales_palabras_clave"
-    ]
-
-    return df
+  return df
